@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IG Recon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  /* ── tokens ─────────────────────────────────── */
+  :root {
+    --bg:       #0a0a0b;
+    --surface:  #111114;
+    --border:   #1e1e24;
+    --accent:   #e8ff47;
+    --accent2:  #ff6b35;
+    --muted:    #3a3a45;
+    --text:     #e2e2e8;
+    --subtext:  #6b6b7a;
+    --mono:     'Space Mono', monospace;
+    --serif:    'DM Serif Display', serif;
+    --radius:   4px;
+    --trans:    .18s cubic-bezier(.4,0,.2,1);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* scanline overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,.012) 2px, rgba(255,255,255,.012) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── layout ─────────────────────────────────── */
+  .shell {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    grid-template-rows: 56px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── header ─────────────────────────────────── */
+  header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .logo {
+    font-family: var(--serif);
+    font-size: 22px;
+    color: var(--accent);
+    letter-spacing: -.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo::before {
+    content: '◈';
+    font-family: var(--mono);
+    font-size: 16px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: .3; }
+  }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--subtext);
+  }
+
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background var(--trans);
+  }
+  .dot.active { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+  /* ── sidebar ─────────────────────────────────── */
+  aside {
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+  }
+
+  .section-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--subtext);
+    margin-bottom: 8px;
+  }
+
+  /* inputs */
+  .field { display: flex; flex-direction: column; gap: 5px; }
+
+  label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--subtext);
+  }
+
+  input[type="text"], input[type="number"], input[type="password"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 10px;
+    width: 100%;
+    transition: border-color var(--trans);
+    outline: none;
+  }
+
+  input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(232,255,71,.08);
+  }
+
+  input::placeholder { color: var(--muted); }
+
+  /* password toggle */
+  .pwd-wrap { position: relative; }
+  .pwd-wrap input { padding-right: 36px; }
+  .pwd-toggle {
+    position: absolute; right: 8px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--subtext); font-size: 14px;
+    transition: color var(--trans);
+  }
+  .pwd-toggle:hover { color: var(--accent); }
+
+  /* mode tabs */
+  .tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 3px;
+    border: 1px solid var(--border);
+  }
+
+  .tab {
+    padding: 7px 4px;
+    text-align: center;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border-radius: 2px;
+    color: var(--subtext);
+    transition: all var(--trans);
+    user-select: none;
+    border: none;
+    background: none;
+    font-family: var(--mono);
+  }
+
+  .tab.active {
+    background: var(--accent);
+    color: #000;
+    font-weight: 700;
+  }
+
+  /* run button */
+  .btn-run {
+    width: 100%;
+    padding: 11px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all var(--trans);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-run::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0);
+    transition: background var(--trans);
+  }
+
+  .btn-run:hover::after { background: rgba(0,0,0,.1); }
+  .btn-run:active { transform: scale(.98); }
+  .btn-run:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-run.loading { animation: shimmer 1.2s linear infinite; }
+
+  @keyframes shimmer {
+    0%,100% { background: var(--accent); }
+    50%      { background: #c8df3a; }
+  }
+
+  /* stop button */
+  .btn-stop {
+    width: 100%;
+    padding: 11px;
+    background: transparent;
+    color: var(--accent2);
+    border: 1px solid var(--accent2);
+    border-radius: var(--radius);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all var(--trans);
+    display: none;
+  }
+  .btn-stop.visible { display: block; }
+  .btn-stop:hover { background: var(--accent2); color: #fff; }
+
+  /* download */
+  .btn-dl {
+    width: 100%;
+    padding: 9px;
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all var(--trans);
+    display: none;
+  }
+  .btn-dl.visible { display: block; }
+  .btn-dl:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* progress */
+  .progress-wrap { display: none; }
+  .progress-wrap.visible { display: block; }
+  .progress-label {
+    display: flex; justify-content: space-between;
+    font-size: 10px; color: var(--subtext);
+    margin-bottom: 5px;
+  }
+  .progress-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width .3s ease;
+    border-radius: 2px;
+  }
+  .progress-fill.indeterminate {
+    width: 40% !important;
+    animation: slide 1.5s linear infinite;
+  }
+  @keyframes slide {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+
+  /* ── main panel ──────────────────────────────── */
+  main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* profile card */
+  #profile-card {
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border);
+    display: none;
+    animation: fadeIn .3s ease;
+  }
+  #profile-card.visible { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .profile-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .avatar {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    object-fit: cover;
+    background: var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    color: var(--subtext);
+    overflow: hidden;
+  }
+
+  .profile-name {
+    font-family: var(--serif);
+    font-size: 20px;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .profile-handle {
+    color: var(--subtext);
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+
+  .profile-stats {
+    display: flex;
+    gap: 28px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .stat-item { text-align: center; }
+
+  .stat-val {
+    font-family: var(--serif);
+    font-size: 18px;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .stat-lbl {
+    font-size: 9px;
+    color: var(--subtext);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-top: 2px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 2px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border: 1px solid;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .badge-verified  { border-color: #4a9eff; color: #4a9eff; }
+  .badge-private   { border-color: var(--accent2); color: var(--accent2); }
+  .badge-business  { border-color: var(--accent); color: var(--accent); }
+
+  /* toolbar */
+  .toolbar {
+    padding: 10px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .result-count {
+    font-size: 11px;
+    color: var(--subtext);
+  }
+
+  .result-count span {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .search-filter {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 10px;
+    width: 200px;
+    outline: none;
+    transition: border-color var(--trans);
+  }
+  .search-filter:focus { border-color: var(--accent); }
+  .search-filter::placeholder { color: var(--muted); }
+
+  /* table area */
+  .table-wrap {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .table-wrap::-webkit-scrollbar { width: 6px; }
+  .table-wrap::-webkit-scrollbar-track { background: var(--bg); }
+  .table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .table-wrap::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  thead {
+    position: sticky; top: 0;
+    background: var(--surface);
+    z-index: 10;
+  }
+
+  th {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--subtext);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    font-weight: 400;
+    cursor: pointer;
+    user-select: none;
+    transition: color var(--trans);
+  }
+  th:hover { color: var(--text); }
+  th.sorted { color: var(--accent); }
+  th.sorted::after { content: ' ↓'; }
+  th.sorted.asc::after { content: ' ↑'; }
+
+  td {
+    padding: 9px 16px;
+    border-bottom: 1px solid rgba(30,30,36,.7);
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  tr { transition: background var(--trans); }
+  tbody tr:hover { background: rgba(232,255,71,.03); }
+
+  tr.new-row {
+    animation: rowIn .25s ease;
+  }
+  @keyframes rowIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .username-cell {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .icon-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px; height: 18px;
+    font-size: 10px;
+    border-radius: 2px;
+    margin-right: 4px;
+  }
+
+  .verified-icon  { background: rgba(74,158,255,.15); color: #4a9eff; }
+  .private-icon   { background: rgba(255,107,53,.15); color: var(--accent2); }
+  .num { color: var(--text); font-variant-numeric: tabular-nums; }
+  .subtext-cell { color: var(--subtext); max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+
+  /* link in table */
+  .ig-link {
+    color: var(--subtext);
+    text-decoration: none;
+    font-size: 11px;
+    transition: color var(--trans);
+  }
+  .ig-link:hover { color: var(--accent); }
+
+  /* action cell */
+  .action-btn {
+    padding: 3px 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--subtext);
+    font-family: var(--mono);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all var(--trans);
+    letter-spacing: .5px;
+  }
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* empty / log */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 300px;
+    color: var(--subtext);
+    gap: 12px;
+    font-size: 13px;
+  }
+
+  .empty-glyph {
+    font-size: 48px;
+    opacity: .2;
+    font-family: var(--serif);
+    font-style: italic;
+  }
+
+  /* toast */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    padding: 10px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    font-size: 12px;
+    color: var(--text);
+    z-index: 1000;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all .3s ease;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.error { border-left-color: var(--accent2); }
+
+  /* modal for comments/likers */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.8);
+    backdrop-filter: blur(4px);
+    z-index: 500;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 720px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    animation: modalIn .2s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .modal-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .modal-title {
+    font-family: var(--serif);
+    font-size: 16px;
+    color: var(--text);
+  }
+
+  .modal-close {
+    background: none; border: none; color: var(--subtext);
+    font-size: 18px; cursor: pointer; transition: color var(--trans);
+  }
+  .modal-close:hover { color: var(--accent); }
+
+  .modal-body {
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  /* divider */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
+  /* type selector small */
+  .type-select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 7px 8px;
+    width: 100%;
+    outline: none;
+    cursor: pointer;
+    transition: border-color var(--trans);
+  }
+  .type-select:focus { border-color: var(--accent); }
+  option { background: var(--surface); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">IG Recon</div>
+    <div class="status-bar">
+      <div class="dot" id="conn-dot"></div>
+      <span id="conn-label">inactivo</span>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <aside>
+
+    <div>
+      <div class="section-label">Autenticación</div>
+      <div class="field">
+        <label>Session ID</label>
+        <div class="pwd-wrap">
+          <input type="password" id="session_id" placeholder="sessionid cookie" autocomplete="off">
+          <button class="pwd-toggle" onclick="togglePwd('session_id', this)">👁</button>
+        </div>
+      </div>
+      <div class="field" style="margin-top:8px">
+        <label>CSRF Token</label>
+        <div class="pwd-wrap">
+          <input type="password" id="csrf_token" placeholder="csrftoken cookie" autocomplete="off">
+          <button class="pwd-toggle" onclick="togglePwd('csrf_token', this)">👁</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
+      <div class="section-label">Objetivo</div>
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="target_user" placeholder="@usuario o user_id" autocomplete="off">
+      </div>
+      <button class="btn-run" id="btn-profile" onclick="fetchProfile()" style="margin-top:8px;font-size:10px;padding:8px;">
+        ◈ Cargar perfil
+      </button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
+      <div class="section-label">Modo de extracción</div>
+      <div class="tabs">
+        <button class="tab active" data-mode="following" onclick="setMode('following', this)">Following</button>
+        <button class="tab" data-mode="followers" onclick="setMode('followers', this)">Followers</button>
+        <button class="tab" data-mode="posts" onclick="setMode('posts', this)">Posts</button>
+        <button class="tab" data-mode="comments" onclick="setMode('comments', this)">Comentarios</button>
+      </div>
+    </div>
+
+    <div id="posts-extra" style="display:none">
+      <div class="field">
+        <label>Post ID (para comentarios/likes)</label>
+        <input type="text" id="media_id" placeholder="media_id del post" autocomplete="off">
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Parámetros</div>
+      <div class="field">
+        <label>Límite (0 = sin límite)</label>
+        <input type="number" id="limit" value="50" min="1" max="5000">
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:auto;">
+      <div class="progress-wrap" id="progress-wrap">
+        <div class="progress-label">
+          <span>Extrayendo</span>
+          <span id="progress-count">0</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill indeterminate" id="progress-fill"></div>
+        </div>
+      </div>
+      <button class="btn-run" id="btn-run" onclick="startExtraction()">▶ Ejecutar</button>
+      <button class="btn-stop" id="btn-stop" onclick="stopExtraction()">■ Detener</button>
+      <button class="btn-dl"  id="btn-dl"  onclick="downloadJSON()">↓ Descargar JSON</button>
+    </div>
+
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+
+    <!-- Profile card -->
+    <div id="profile-card">
+      <div class="profile-grid">
+        <div class="avatar" id="avatar-el">◈</div>
+        <div>
+          <div class="profile-name" id="p-name">—</div>
+          <div class="profile-handle" id="p-handle">—</div>
+        </div>
+      </div>
+      <div class="profile-stats">
+        <div class="stat-item"><div class="stat-val" id="p-followers">—</div><div class="stat-lbl">Seguidores</div></div>
+        <div class="stat-item"><div class="stat-val" id="p-following">—</div><div class="stat-lbl">Siguiendo</div></div>
+        <div class="stat-item"><div class="stat-val" id="p-posts">—</div><div class="stat-lbl">Posts</div></div>
+        <div class="stat-item"><div class="stat-val" id="p-type">—</div><div class="stat-lbl">Tipo</div></div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="result-count">resultados: <span id="result-count">0</span></div>
+        <input class="search-filter" id="search-filter" placeholder="filtrar tabla..." oninput="filterTable(this.value)">
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap" id="table-wrap">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-glyph">◈</div>
+        <div>Configura las cookies y ejecuta una extracción</div>
+      </div>
+      <table id="data-table" style="display:none">
+        <thead><tr id="table-head"></tr></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Detalle</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <table id="modal-table" style="width:100%">
+        <thead><tr id="modal-head"></tr></thead>
+        <tbody id="modal-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ── state ────────────────────────────────────────────────────────────────────
+let currentMode    = 'following';
+let currentUserId  = null;
+let currentProfile = null;
+let collected      = [];
+let activeSSE      = null;
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function fmt(n) {
+  if (n == null) return '—';
+  if (n >= 1_000_000) return (n/1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000)     return (n/1_000).toFixed(1) + 'k';
+  return n.toString();
+}
+
+function ts(unix) {
+  if (!unix) return '—';
+  return new Date(unix * 1000).toLocaleDateString('es-ES');
+}
+
+function toast(msg, isError = false) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.className = 'show' + (isError ? ' error' : '');
+  setTimeout(() => el.className = '', 3000);
+}
+
+function togglePwd(id, btn) {
+  const el = $(id);
+  if (el.type === 'password') { el.type = 'text'; btn.textContent = '🙈'; }
+  else                        { el.type = 'password'; btn.textContent = '👁'; }
+}
+
+function setConnStatus(active) {
+  $('conn-dot').className   = 'dot' + (active ? ' active' : '');
+  $('conn-label').textContent = active ? 'extrayendo' : 'inactivo';
+}
+
+function setRunning(running) {
+  $('btn-run').disabled  = running;
+  $('btn-run').className = 'btn-run' + (running ? ' loading' : '');
+  $('btn-stop').className = 'btn-stop' + (running ? ' visible' : '');
+  $('progress-wrap').className = 'progress-wrap' + (running ? ' visible' : '');
+  if (!running) $('progress-fill').classList.remove('indeterminate');
+  setConnStatus(running);
+}
+
+// ── mode ─────────────────────────────────────────────────────────────────────
+function setMode(mode, btn) {
+  currentMode = mode;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  $('posts-extra').style.display = (mode === 'comments') ? 'block' : 'none';
+  clearTable();
+}
+
+// ── profile ──────────────────────────────────────────────────────────────────
+async function fetchProfile() {
+  const username   = $('target_user').value.trim().replace('@','');
+  const session_id = $('session_id').value.trim();
+  const csrf_token = $('csrf_token').value.trim();
+
+  if (!username || !session_id || !csrf_token) {
+    toast('Completa usuario y cookies', true); return;
+  }
+
+  const btn = $('btn-profile');
+  btn.disabled = true; btn.textContent = '…';
+
+  try {
+    const url = `/api/profile?username=${encodeURIComponent(username)}&session_id=${encodeURIComponent(session_id)}&csrf_token=${encodeURIComponent(csrf_token)}`;
+    const res = await fetch(url);
+    const json = await res.json();
+
+    if (!res.ok) { toast(json.detail || 'Error', true); return; }
+
+    const p = json.profile;
+    currentProfile = p;
+    currentUserId  = p.id;
+
+    // populate card
+    $('p-name').innerHTML    = p.full_name || p.username;
+    $('p-handle').innerHTML  = `@${p.username}`
+      + (p.is_verified ? '<span class="badge badge-verified">✓ verificado</span>' : '')
+      + (p.is_private  ? '<span class="badge badge-private">🔒 privado</span>'    : '')
+      + (p.account_type !== 'Personal' ? `<span class="badge badge-business">${p.account_type}</span>` : '');
+    $('p-followers').textContent = fmt(p.followers);
+    $('p-following').textContent = fmt(p.following);
+    $('p-posts').textContent     = fmt(p.posts);
+    $('p-type').textContent      = p.account_type;
+
+    const avatarEl = $('avatar-el');
+    if (p.profile_pic_url) {
+      avatarEl.innerHTML = `<img src="${p.profile_pic_url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.textContent='◈'">`;
+    }
+
+    $('profile-card').classList.add('visible');
+    toast(`Perfil @${p.username} cargado`);
+
+  } catch(e) {
+    toast('Error de red: ' + e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '◈ Cargar perfil';
+  }
+}
+
+// ── table ─────────────────────────────────────────────────────────────────────
+const SCHEMAS = {
+  following: [
+    {key:'username',    label:'Usuario',     render: u => `<span class="username-cell">@${u.username}</span>`},
+    {key:'full_name',   label:'Nombre',      render: u => `<span class="subtext-cell">${u.full_name||'—'}</span>`},
+    {key:'is_verified', label:'Verificado',  render: u => u.is_verified ? '<span class="icon-badge verified-icon">✓</span>' : '—'},
+    {key:'is_private',  label:'Privado',     render: u => u.is_private  ? '<span class="icon-badge private-icon">🔒</span>' : '—'},
+    {key:'_actions',    label:'',            render: u => `<button class="action-btn" onclick="loadUserDetail('${u.id}','${u.username}')">→ posts</button>`},
+  ],
+  followers: [
+    {key:'username',    label:'Usuario',     render: u => `<span class="username-cell">@${u.username}</span>`},
+    {key:'full_name',   label:'Nombre',      render: u => `<span class="subtext-cell">${u.full_name||'—'}</span>`},
+    {key:'is_verified', label:'Verificado',  render: u => u.is_verified ? '<span class="icon-badge verified-icon">✓</span>' : '—'},
+    {key:'is_private',  label:'Privado',     render: u => u.is_private  ? '<span class="icon-badge private-icon">🔒</span>' : '—'},
+  ],
+  posts: [
+    {key:'type',      label:'Tipo',       render: p => p.type},
+    {key:'caption',   label:'Caption',    render: p => `<span class="subtext-cell" title="${(p.caption||'').replace(/"/g,'&quot;')}">${(p.caption||'—').slice(0,60)}…</span>`},
+    {key:'likes',     label:'Likes',      render: p => `<span class="num">${fmt(p.likes)}</span>`},
+    {key:'comments',  label:'Comentarios',render: p => `<span class="num">${fmt(p.comments)}</span>`},
+    {key:'views',     label:'Vistas',     render: p => `<span class="num">${p.views ? fmt(p.views) : '—'}</span>`},
+    {key:'timestamp', label:'Fecha',      render: p => ts(p.timestamp)},
+    {key:'_actions',  label:'',           render: p => `<button class="action-btn" onclick="openComments('${p.id}','${p.shortcode}')">💬 ver</button>`
+                                                      + ` <button class="action-btn" onclick="openLikers('${p.id}')">♥ likes</button>`},
+  ],
+  comments: [
+    {key:'author',    label:'Autor',      render: c => `<span class="username-cell">@${c.author}</span>`},
+    {key:'text',      label:'Comentario', render: c => `<span class="subtext-cell" title="${(c.text||'').replace(/"/g,'&quot;')}">${(c.text||'').slice(0,80)}</span>`},
+    {key:'likes',     label:'Likes',      render: c => `<span class="num">${c.likes}</span>`},
+    {key:'timestamp', label:'Fecha',      render: c => ts(c.timestamp)},
+  ],
+};
+
+function clearTable() {
+  collected = [];
+  $('table-body').innerHTML = '';
+  $('table-head').innerHTML = '';
+  $('data-table').style.display = 'none';
+  $('empty-state').style.display = 'flex';
+  $('result-count').textContent = '0';
+  $('btn-dl').className = 'btn-dl';
+}
+
+function initTable(mode) {
+  const schema = SCHEMAS[mode];
+  $('table-head').innerHTML = schema.map(col =>
+    `<th onclick="sortBy('${col.key}')">${col.label}</th>`
+  ).join('');
+  $('data-table').style.display = '';
+  $('empty-state').style.display = 'none';
+}
+
+function appendRow(item) {
+  const schema = SCHEMAS[currentMode];
+  const tr = document.createElement('tr');
+  tr.className = 'new-row';
+  tr.innerHTML = schema.map(col => `<td>${col.render(item)}</td>`).join('');
+  $('table-body').appendChild(tr);
+  $('result-count').textContent = collected.length;
+}
+
+let sortCol = null, sortAsc = true;
+function sortBy(key) {
+  if (key === '_actions') return;
+  if (sortCol === key) sortAsc = !sortAsc;
+  else { sortCol = key; sortAsc = true; }
+  document.querySelectorAll('th').forEach(th => {
+    th.classList.remove('sorted','asc');
+    if (th.textContent.trim() === SCHEMAS[currentMode].find(c=>c.key===key)?.label) {
+      th.classList.add('sorted'); if (!sortAsc) th.classList.add('asc');
+    }
+  });
+  const sorted = [...collected].sort((a,b) => {
+    const va = a[key] ?? ''; const vb = b[key] ?? '';
+    const cmp = typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb));
+    return sortAsc ? cmp : -cmp;
+  });
+  $('table-body').innerHTML = '';
+  sorted.forEach(item => { collected = sorted; appendRow(item); });
+  collected = sorted;
+}
+
+function filterTable(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('#table-body tr').forEach((tr, i) => {
+    const text = tr.textContent.toLowerCase();
+    tr.style.display = text.includes(q) ? '' : 'none';
+  });
+}
+
+// ── extraction ───────────────────────────────────────────────────────────────
+function getCookies() {
+  return {
+    session_id: $('session_id').value.trim(),
+    csrf_token:  $('csrf_token').value.trim(),
+  };
+}
+
+function startExtraction() {
+  const { session_id, csrf_token } = getCookies();
+  if (!session_id || !csrf_token) { toast('Ingresa las cookies primero', true); return; }
+
+  const limit = parseInt($('limit').value) || 50;
+
+  if (currentMode === 'following' || currentMode === 'followers') {
+    if (!currentUserId) { toast('Carga el perfil primero', true); return; }
+    const endpoint = `/api/stream/${currentMode}?user_id=${currentUserId}&session_id=${encodeURIComponent(session_id)}&csrf_token=${encodeURIComponent(csrf_token)}&limit=${limit}`;
+    startSSE(endpoint);
+
+  } else if (currentMode === 'posts') {
+    if (!currentUserId) { toast('Carga el perfil primero', true); return; }
+    const endpoint = `/api/stream/posts?user_id=${currentUserId}&session_id=${encodeURIComponent(session_id)}&csrf_token=${encodeURIComponent(csrf_token)}&limit=${limit}`;
+    startSSE(endpoint);
+
+  } else if (currentMode === 'comments') {
+    const media_id = $('media_id').value.trim();
+    if (!media_id) { toast('Ingresa el media_id del post', true); return; }
+    const endpoint = `/api/stream/comments?media_id=${media_id}&session_id=${encodeURIComponent(session_id)}&csrf_token=${encodeURIComponent(csrf_token)}&limit=${limit}`;
+    startSSE(endpoint);
+  }
+}
+
+function startSSE(endpoint) {
+  if (activeSSE) activeSSE.close();
+  clearTable();
+  initTable(currentMode);
+  setRunning(true);
+
+  const sse = new EventSource(endpoint);
+  activeSSE = sse;
+
+  sse.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'item') {
+      collected.push(msg.data);
+      appendRow(msg.data);
+      $('progress-count').textContent = collected.length;
+    } else if (msg.type === 'done') {
+      toast(`✓ ${msg.data.total} elementos extraídos`);
+      finishExtraction();
+    } else if (msg.type === 'error') {
+      toast(msg.data.message, true);
+      finishExtraction();
+    }
+  };
+
+  sse.onerror = () => {
+    if (activeSSE) { toast('Conexión interrumpida', true); finishExtraction(); }
+  };
+}
+
+function finishExtraction() {
+  if (activeSSE) { activeSSE.close(); activeSSE = null; }
+  setRunning(false);
+  if (collected.length > 0) $('btn-dl').className = 'btn-dl visible';
+}
+
+function stopExtraction() {
+  if (activeSSE) { activeSSE.close(); activeSSE = null; }
+  setRunning(false);
+  toast('Extracción detenida');
+  if (collected.length > 0) $('btn-dl').className = 'btn-dl visible';
+}
+
+// ── download ──────────────────────────────────────────────────────────────────
+function downloadJSON() {
+  if (!collected.length) return;
+  const blob = new Blob([JSON.stringify(collected, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ig_${currentMode}_${Date.now()}.json`;
+  a.click();
+}
+
+// ── modal: comments ───────────────────────────────────────────────────────────
+function openComments(mediaId, shortcode) {
+  const { session_id, csrf_token } = getCookies();
+  const limit = 100;
+  const endpoint = `/api/stream/comments?media_id=${mediaId}&session_id=${encodeURIComponent(session_id)}&csrf_token=${encodeURIComponent(csrf_token)}&limit=${limit}`;
+
+  $('modal-title').textContent = `Comentarios · /p/${shortcode}/`;
+  $('modal-head').innerHTML = '<th>Autor</th><th>Comentario</th><th>Likes</th><th>Fecha</th>';
+  $('modal-body').innerHTML = '';
+  $('modal').classList.add('open');
+
+  const sse = new EventSource(endpoint);
+  sse.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'item') {
+      const c = msg.data;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><span class="username-cell">@${c.author}</span></td>
+        <td class="subtext-cell" style="max-width:320px;white-space:normal">${c.text}</td>
+        <td class="num">${c.likes}</td><td>${ts(c.timestamp)}</td>`;
+      $('modal-body').appendChild(tr);
+    } else { sse.close(); }
+  };
+  sse.onerror = () => sse.close();
+}
+
+async function openLikers(mediaId) {
+  const { session_id, csrf_token } = getCookies();
+  $('modal-title').textContent = 'Likes';
+  $('modal-head').innerHTML = '<th>Usuario</th><th>Nombre</th><th>Verificado</th>';
+  $('modal-body').innerHTML = '<tr><td colspan="3" style="color:var(--subtext);padding:20px">Cargando…</td></tr>';
+  $('modal').classList.add('open');
+
+  try {
+    const res = await fetch(`/api/likers?media_id=${mediaId}&session_id=${encodeURIComponent(session_id)}&csrf_token=${encodeURIComponent(csrf_token)}`);
+    const data = await res.json();
+    $('modal-body').innerHTML = '';
+    (data.likers || []).forEach(u => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><span class="username-cell">@${u.username}</span></td>
+        <td class="subtext-cell">${u.full_name||'—'}</td>
+        <td>${u.is_verified ? '<span class="icon-badge verified-icon">✓</span>' : '—'}</td>`;
+      $('modal-body').appendChild(tr);
+    });
+    $('modal-title').textContent = `Likes (${data.total})`;
+  } catch(e) {
+    $('modal-body').innerHTML = `<tr><td colspan="3" style="color:var(--accent2)">Error: ${e.message}</td></tr>`;
+  }
+}
+
+async function loadUserDetail(userId, username) {
+  const { session_id, csrf_token } = getCookies();
+  $('modal-title').textContent = `Posts de @${username}`;
+  $('modal-head').innerHTML = '<th>Tipo</th><th>Caption</th><th>Likes</th><th>Comentarios</th><th>Fecha</th>';
+  $('modal-body').innerHTML = '<tr><td colspan="5" style="color:var(--subtext);padding:20px">Cargando…</td></tr>';
+  $('modal').classList.add('open');
+
+  const endpoint = `/api/stream/posts?user_id=${userId}&session_id=${encodeURIComponent(session_id)}&csrf_token=${encodeURIComponent(csrf_token)}&limit=12`;
+  $('modal-body').innerHTML = '';
+  const sse = new EventSource(endpoint);
+  sse.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'item') {
+      const p = msg.data;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${p.type}</td>
+        <td class="subtext-cell" style="max-width:260px;white-space:normal">${(p.caption||'—').slice(0,80)}</td>
+        <td class="num">${fmt(p.likes)}</td>
+        <td class="num">${fmt(p.comments)}</td>
+        <td>${ts(p.timestamp)}</td>`;
+      $('modal-body').appendChild(tr);
+    } else { sse.close(); }
+  };
+  sse.onerror = () => sse.close();
+}
+
+function closeModal() {
+  $('modal').classList.remove('open');
+}
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) closeModal(); });
+</script>
+</body>
+</html>
